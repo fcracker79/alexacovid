@@ -1,0 +1,57 @@
+name:                alexacovid
+version:             0.1.0
+github:              "githubuser/alexacovid"
+license:             BSD3
+author:              "Author name here"
+maintainer:          "example@example.com"
+copyright:           "2021 Author name here"
+
+description:         Please see the README on GitHub at <https://github.com/githubuser/alexacovid#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- aws-lambda-haskell-runtime >= 3.0.0
+- aeson
+- amazonka >= 1.6.1
+- amazonka-dynamodb >= 1.6.1
+- amazonka-ssm >= 1.6.1
+- http-types >= 0.12.3
+- transformers >= 0.5.2.0
+- containers >= 0.6.2.1
+- req == 3.2.0
+- mtl >= 2.2.2
+
+library:
+  source-dirs: src
+
+executables:
+  bootstrap:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -O2
+    - -static
+    - -with-rtsopts=-N
+    cc-options: -static
+    ld-options: -static -pthread
+    dependencies:
+    - alexacovid
+
+default-extensions:
+  - RecordWildCards
+  - OverloadedLists
+  - DeriveGeneric
+  - TypeSynonymInstances
+  - FlexibleInstances
+  - MonadComprehensions
+  - FlexibleContexts
+  - RankNTypes
+  - TypeOperators
+  - UndecidableInstances
+  - MultiParamTypeClasses
+  - FunctionalDependencies
+  - OverloadedStrings
+  - LambdaCase
+  - TupleSections
