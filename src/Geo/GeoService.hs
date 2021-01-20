@@ -41,7 +41,7 @@ getRegionHttpRequest (lat, long) apiKey = do
             (https "maps.googleapis.com" /: "maps" /: "api" /: "geocode" /: "json")
             NoReqBody
             jsonResponse
-            ("latlng" =: (show lat ++ "," ++ show long))
+            (("latlng" =: (show lat ++ "," ++ show long)) <> ("key" =: apiKey))
     let body = (responseBody r :: GetRegionResponse)
     (liftIO . print) body
     return $ if status body == "OK" then results body else []
