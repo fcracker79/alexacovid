@@ -20,7 +20,8 @@ dependencies:
 - containers >= 0.6.2.1
 - req == 3.2.0
 - mtl >= 2.2.2
-
+- unordered-containers >= 0.2.10.0
+- text >= 1.2.4.0
 library:
   source-dirs: src
 
@@ -43,6 +44,7 @@ default-extensions:
   - RecordWildCards
   - OverloadedLists
   - DeriveGeneric
+  - DeriveAnyClass
   - TypeSynonymInstances
   - FlexibleInstances
   - MonadComprehensions
