@@ -7,32 +7,31 @@ import Control.Applicative(empty)
 import Control.Monad (guard)
 import Data.Map.Strict(fromList, Map)
 import Data.Map (compose)
+import Regions(Region(..))
 
-
-transcodingMap :: Map String String
+transcodingMap :: Map Region String
 transcodingMap = fromList [
-    ("Abruzzo","Abruzzo"),
-    ("Basilicata","Basilicata"),
-    ("Calabria","Calabria"),
-    ("Campania","Campania"),
-    ("Emilia-Romagna","Emilia-Romagna"),
-    ("Friuli-Venezia Giulia","Friuli-Venezia Giulia"),
-    ("Lazio","Lazio"),
-    ("Liguria","Liguria"),
-    ("Lombardy","Lombardia"),
-    ("Marche","Marche"),
-    ("Molise","Molise"),
-    ("Piemonte","Piemonte"),
-    ("Puglia","Puglia"),
-    ("Sardinia","Sardegna"),
-    ("Sicily","Sicilia"),
-    ("Tuscany","Toscana"),
-    ("Trentino-South Tyrol", "Trentino Alto Adige (P.A. Bolzano)"),
+    (Abruzzo, "Abruzzo"),
+    (Basilicata, "Basilicata"),
+    (Calabria, "Calabria"),
+    (Campania, "Campania"),
+    (Emilia,"Emilia-Romagna"),
+    (Friuli,"Friuli-Venezia Giulia"),
+    (Lazio, "Lazio"),
+    (Liguria, "Liguria"),
+    (Lombardia, "Lombardia"),
+    (Marche, "Marche"),
+    (Molise, "Molise"),
+    (Piemonte, "Piemonte"),
+    (Puglia, "Puglia"),
+    (Sardegna, "Sardegna"),
+    (Sicilia, "Sicilia"),
+    (Toscana, "Toscana"),
+    (Trentino, "Trentino Alto Adige (P.A. Bolzano)"),
 --    ("Trentino Alto Adige (P.A. Trento)","giallo"),
-    ("Umbria","Umbria"),
-    ("Aosta", "Valle d'Aosta"),
-    ("Aosta Valley", "Valle d'Aosta"),
-    ("Veneto","Veneto")]
+    (Umbria,"Umbria"),
+    (ValDAosta, "Valle d'Aosta"),
+    (Veneto,"Veneto")]
 
 getRegionColorsList :: MaybeT IO [(String, String)]
 getRegionColorsList = MaybeT $ do
@@ -45,5 +44,5 @@ getRegionColorsList = MaybeT $ do
                                      guard (color /= "")
                                      return (region, color)
 
-getRegionColors :: MaybeT IO (Map String String)
+getRegionColors :: MaybeT IO (Map Region String)
 getRegionColors = flip compose transcodingMap . fromList <$> getRegionColorsList
