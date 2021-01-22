@@ -16,7 +16,7 @@ import Network.HTTP.Req (MonadHttp, jsonResponse, GET(..), runReq, req, https, (
 import qualified Data.HashMap.Lazy as M
 import Data.Maybe(isJust, fromMaybe)
 import Data.Text(Text)
-import Regions(Region(..))
+import Regions(ItalianRegion(..))
 import qualified Data.Map as Map
 import Control.Applicative
 
@@ -51,7 +51,7 @@ getRegionHttpRequest (lat, long) apiKey = do
     return $ if status body == "OK" then results body else []
 
 
-transcodingMap :: Map.Map String Region
+transcodingMap :: Map.Map String ItalianRegion
 transcodingMap = Map.fromList [
     ("Abruzzo", Abruzzo),
     ("Basilicata", Basilicata),
@@ -75,7 +75,7 @@ transcodingMap = Map.fromList [
     ("Veneto", Veneto)]
 
 
-getRegion :: MonadIO m => (Float, Float) -> MaybeT (ReaderT ApiKey m) Region
+getRegion :: MonadIO m => (Float, Float) -> MaybeT (ReaderT ApiKey m) ItalianRegion
 getRegion pos = do
     apiKey <- ask
     resp <- runReq defaultHttpConfig $ getRegionHttpRequest pos apiKey

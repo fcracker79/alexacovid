@@ -7,9 +7,9 @@ import Control.Applicative(empty)
 import Control.Monad (guard)
 import Data.Map.Strict(fromList, Map)
 import Data.Map (compose)
-import Regions(Region(..))
+import Regions(ItalianRegion(..))
 
-transcodingMap :: Map Region String
+transcodingMap :: Map ItalianRegion String
 transcodingMap = fromList [
     (Abruzzo, "Abruzzo"),
     (Basilicata, "Basilicata"),
@@ -44,5 +44,5 @@ getRegionColorsList = MaybeT $ do
                                      guard (color /= "")
                                      return (region, color)
 
-getRegionColors :: MaybeT IO (Map Region String)
+getRegionColors :: MaybeT IO (Map ItalianRegion String)
 getRegionColors = flip compose transcodingMap . fromList <$> getRegionColorsList
