@@ -17,7 +17,7 @@ dependencies:
 - amazonka-ssm >= 1.6.1
 - http-types >= 0.12.3
 - transformers >= 0.5.2.0
-- containers >= 0.6.2.1
+- containers >= 0.6.4.1
 - req == 3.2.0
 - mtl >= 2.2.2
 - unordered-containers >= 0.2.10.0
