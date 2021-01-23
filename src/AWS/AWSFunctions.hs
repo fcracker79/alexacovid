@@ -27,8 +27,7 @@ getRegionColor :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
 getRegionColor r _ = do
     awsRegion <- getAWSRegion
     geoServiceKey <- runReaderT getGeoServiceKey awsRegion
-    coordinates <- getCoordinates
-    maybeItalianRegion <- runReaderT (runMaybeT (getRegion coordinates)) geoServiceKey
+    maybeItalianRegion <- runReaderT (runMaybeT (getRegion getCoordinates)) geoServiceKey
     case maybeItalianRegion of
         Nothing -> return $ Left "No such region for position"
         Just italianRegion -> regionColorResponse italianRegion
