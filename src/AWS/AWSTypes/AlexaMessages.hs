@@ -1,4 +1,4 @@
-module AWS.AlexaMessages where
+module AWS.AWSTypes.AlexaMessages where
 
 {-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
@@ -13,6 +13,7 @@ import Data.Aeson
       ToJSON(toJSON),
       Value )
 import GHC.Generics (Generic)
+import AWS.AWSTypes.AlexaContext(AlexaContext)
 
 
 newtype AlexaStatus = AlexaStatus { code :: String} deriving (Generic, Show, FromJSON, ToJSON)
@@ -55,7 +56,8 @@ instance FromJSON AlexaIntent where
     parseJSON = genericParseJSON defaultOptions {
                 fieldLabelModifier = drop 6 }
 
-data AlexaRequest = AlexaRequest {
+
+data AlexaRequestPayload = AlexaRequestPayload {
     _type :: String,
     _request :: String,
     _timestamp :: String,
@@ -63,14 +65,18 @@ data AlexaRequest = AlexaRequest {
     _intent :: Maybe AlexaIntent
     } deriving (Generic, Show)
 
-instance ToJSON AlexaRequest where
+instance ToJSON AlexaRequestPayload where
     toJSON = genericToJSON defaultOptions {
                 fieldLabelModifier = drop 1 }
 
-instance FromJSON AlexaRequest where
+instance FromJSON AlexaRequestPayload where
     parseJSON = genericParseJSON defaultOptions {
                 fieldLabelModifier = drop 1 }
-
+    
+data AlexaRequest = AlexaRequest {
+    request :: AlexaRequestPayload,
+    context :: AlexaContext
+} deriving (Generic, Show, FromJSON, ToJSON)
 
 type AlexaDirective = Value
 

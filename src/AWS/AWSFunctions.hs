@@ -1,6 +1,6 @@
 module AWS.AWSFunctions where
 
-import AWS.AlexaMessages
+import AWS.AWSTypes.AlexaMessages
 import Regions(ItalianRegion)
 import Geo.GeoService(getRegion)
 import Geo.GeoCredentials(getGeoServiceKey)
@@ -10,10 +10,11 @@ import Control.Monad.Trans.Maybe(runMaybeT)
 import Network.AWS
 import Network.AWS.Data
 import Data.Text(pack)
-import Aws.Lambda ( Context )
+import Aws.Lambda ( Context(..) )
 import RegionColors(getRegionColors)
 import qualified Data.Map as Map
-
+import AWS.AWSTypes.AlexaContext
+import Data.IORef(readIORef)
 
 getAWSRegion :: IO Region
 getAWSRegion = do
@@ -23,11 +24,11 @@ getAWSRegion = do
         Right x -> return x
     
 getRegionColor :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
-getRegionColor r c = do
+getRegionColor r _ = do
     awsRegion <- getAWSRegion
     geoServiceKey <- runReaderT getGeoServiceKey awsRegion
-    -- TODO verify how to extract coordinates from Context
-    maybeItalianRegion <- runReaderT (runMaybeT (getRegion (42.8, 10.6))) geoServiceKey
+    coordinates <- getCoordinates
+    maybeItalianRegion <- runReaderT (runMaybeT (getRegion coordinates)) geoServiceKey
     case maybeItalianRegion of
         Nothing -> return $ Left "No such region for position"
         Just italianRegion -> regionColorResponse italianRegion
@@ -39,6 +40,9 @@ getRegionColor r c = do
                     case Map.lookup italianRegion regionColors of
                         Nothing -> return $ Left ("Missing color for region " ++ show italianRegion)
                         Just color -> return $ createColorResponse color
+          getCoordinates = (latitudeInDegrees coords, longitudeInDegrees coords)
+          coords =  (coordinate . alexaGeolocation . context) r
+
 
 createColorResponse :: String -> Either String AlexaResponse
 createColorResponse color = Right AlexaResponse {
