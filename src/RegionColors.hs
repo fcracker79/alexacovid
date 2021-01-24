@@ -37,12 +37,12 @@ getRegionColorsList :: MaybeT IO [(String, String)]
 getRegionColorsList = MaybeT $ do
                                scrapeURL "https://covidzone.info" scraper
                                where scraper = chroots "path" $ do
-                                     d <- attr "d" anySelector
-                                     region  <- attr "title" anySelector
-                                     guard (region /= "")
-                                     color <- attr "color" anySelector
-                                     guard (color /= "")
-                                     return (region, color)
+                                                                d <- attr "d" anySelector
+                                                                region  <- attr "title" anySelector
+                                                                guard (region /= "")
+                                                                color <- attr "color" anySelector
+                                                                guard (color /= "")
+                                                                return (region, color)
 
 getRegionColors :: MaybeT IO (Map ItalianRegion String)
 getRegionColors = flip compose transcodingMap . fromList <$> getRegionColorsList
