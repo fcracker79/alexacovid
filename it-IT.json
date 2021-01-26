@@ -1,0 +1,34 @@
+{
+    "interactionModel": {
+        "languageModel": {
+            "invocationName": "infocovid",
+            "intents": [
+                {
+                    "name": "AMAZON.CancelIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.HelpIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.StopIntent",
+                    "samples": []
+                },
+                {
+                    "name": "RegionColorIntent",
+                    "slots": [],
+                    "samples": [
+                        "di quale colore è la mia regione",
+                        "che colore sono oggi"
+                    ]
+                },
+                {
+                    "name": "AMAZON.NavigateHomeIntent",
+                    "samples": []
+                }
+            ],
+            "types": []
+        }
+    }
+}

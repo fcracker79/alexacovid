@@ -15,6 +15,15 @@ import RegionColors(getRegionColors)
 import qualified Data.Map as Map
 import AWS.AWSTypes.AlexaContext
 import Data.IORef(readIORef)
+import Data.Aeson
+import Data.ByteString.Lazy.Char8(unpack)
+
+debugMessage :: Value -> Context () -> IO (Either String AlexaResponse)
+debugMessage r c = do
+    let s = unpack (encode r)
+    print $ "THIS IS MY ENTIRE MESSAGE " ++ s
+    return $ Left s
+
 
 getAWSRegion :: IO Region
 getAWSRegion = do
@@ -25,22 +34,28 @@ getAWSRegion = do
     
 getRegionColor :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
 getRegionColor r _ = do
-    awsRegion <- getAWSRegion
+    case getCoordinates of
+        Nothing -> return $ createErrorResponse "Abilita servizi geografici"
+        Just coords -> getRegionColorByCoords coords
+    where maybeCoords = coordinate <$> (alexaGeolocation . context) r
+          getCoordinates = fmap (\jcoords -> (latitudeInDegrees jcoords, longitudeInDegrees jcoords)) maybeCoords
+
+
+getRegionColorByCoords :: (Float, Float) -> IO (Either String AlexaResponse)
+getRegionColorByCoords coords = do
+    awsRegion <- getAWSRegion    
     geoServiceKey <- runReaderT getGeoServiceKey awsRegion
-    maybeItalianRegion <- runReaderT (runMaybeT (getRegion getCoordinates)) geoServiceKey
+    maybeItalianRegion <- runReaderT (runMaybeT (getRegion coords)) geoServiceKey
     case maybeItalianRegion of
-        Nothing -> return $ Left "No such region for position"
-        Just italianRegion -> regionColorResponse italianRegion
-    where regionColorResponse italianRegion = do
-            maybeRegions <- runMaybeT getRegionColors
-            case maybeRegions of
-                Nothing -> return $ Left "No such region colors"
-                Just regionColors ->
-                    case Map.lookup italianRegion regionColors of
-                        Nothing -> return $ Left ("Missing color for region " ++ show italianRegion)
-                        Just color -> return $ createColorResponse color
-          getCoordinates = (latitudeInDegrees coords, longitudeInDegrees coords)
-          coords =  (coordinate . alexaGeolocation . context) r
+        Nothing -> return $ createErrorResponse "Non ho trovato la tua regione" 
+        Just italianRegion -> getRegionColorByRegion italianRegion
+
+getRegionColorByRegion :: ItalianRegion -> IO (Either String AlexaResponse)
+getRegionColorByRegion italianRegion = do
+    maybeRegionColors <- runMaybeT getRegionColors
+    case fmap (Map.lookup italianRegion) maybeRegionColors of
+        Just (Just color) -> return $ createColorResponse color
+        _ -> return $ createErrorResponse "Non ho trovato il colore per la tua regione" 
 
 
 createColorResponse :: String -> Either String AlexaResponse
@@ -54,6 +69,23 @@ createColorResponse color = Right AlexaResponse {
         ctype = "Standard",
         ctitle = "Colori CoVid delle regioni",
         ctext = "Scopri giorno per giorno il colore della tua regione"
+    },
+    reprompt = Nothing,
+    directives = [],
+    shouldEndSession = True
+}
+
+createErrorResponse :: String -> Either String AlexaResponse
+createErrorResponse message = Right AlexaResponse {
+    outputSpeech = AlexaOutputSpeech {
+        aostype = "PlainText",
+        aostext = message,
+        aosplayBehavior = "REPLACE_ENQUEUED"
+    },
+    card = AlexaCard {
+        ctype = "Standard",
+        ctitle = message,
+        ctext = message
     },
     reprompt = Nothing,
     directives = [],

@@ -71,7 +71,7 @@ newtype System = System {
 } deriving(Generic, Show, Eq, FromJSON, ToJSON)
 
 data AlexaContext = AlexaContext {
-    alexaGeolocation :: GeoLocation,
+    alexaGeolocation :: Maybe GeoLocation,
     alexaSystem :: System
 } deriving(Generic, Show, Eq)
 instance ToJSON AlexaContext where

@@ -46,7 +46,7 @@ instance FromJSON AlexaIntentSlot where
 data AlexaIntent = AlexaIntent {
     intentname :: String,
     intentconfirmationStatus :: String,
-    intentslots :: Map.Map String AlexaIntentSlot
+    intentslots :: Maybe (Map.Map String AlexaIntentSlot)
 } deriving (Generic, Show)
 instance ToJSON AlexaIntent where
     toJSON = genericToJSON defaultOptions {
@@ -59,7 +59,7 @@ instance FromJSON AlexaIntent where
 
 data AlexaRequestPayload = AlexaRequestPayload {
     _type :: String,
-    _request :: String,
+    _requestId :: String,
     _timestamp :: String,
     _locale :: String,
     _intent :: Maybe AlexaIntent
