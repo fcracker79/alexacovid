@@ -17,6 +17,9 @@ import AWS.AWSTypes.AlexaContext
 import Data.IORef(readIORef)
 import Data.Aeson
 import Data.ByteString.Lazy.Char8(unpack)
+import Control.Monad.Trans.Except(ExceptT(..), runExceptT)
+import Control.Monad.IO.Class(liftIO)
+
 
 debugMessage :: Value -> Context () -> IO (Either String AlexaResponse)
 debugMessage r c = do
@@ -32,34 +35,46 @@ getAWSRegion = do
         Left x -> ioError (userError x)
         Right x -> return x
     
-getRegionColor :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
-getRegionColor r _ = do
-    case getCoordinates of
-        Nothing -> return $ createErrorResponse "Abilita servizi geografici"
-        Just coords -> getRegionColorByCoords coords
-    where maybeCoords = coordinate <$> (alexaGeolocation . context) r
-          getCoordinates = fmap (\jcoords -> (latitudeInDegrees jcoords, longitudeInDegrees jcoords)) maybeCoords
+getRegionColor :: AlexaRequest -> Context () -> IO (Either AlexaResponse AlexaResponse)
+getRegionColor r c = do
+    runExceptT $ eitherRegionColor r c
 
 
-getRegionColorByCoords :: (Float, Float) -> IO (Either String AlexaResponse)
-getRegionColorByCoords coords = do
-    awsRegion <- getAWSRegion    
-    geoServiceKey <- runReaderT getGeoServiceKey awsRegion
-    maybeItalianRegion <- runReaderT (runMaybeT (getRegion coords)) geoServiceKey
+eitherGeolocation :: AlexaRequest -> ExceptT AlexaResponse IO (Float, Float)
+eitherGeolocation r = do
+    let maybeGeolocation = fmap ((\c -> (latitudeInDegrees c, longitudeInDegrees c)) . coordinate) ((alexaGeolocation . context) r)
+    case maybeGeolocation of
+        Nothing -> createErrorResponse "Abilita servizi geografici"
+        Just geolocation -> return geolocation
+
+
+eitherItalianRegion :: String -> (Float, Float) -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegion geoServiceKey coords = do
+    maybeItalianRegion <- liftIO $ runReaderT (runMaybeT (getRegion coords)) geoServiceKey
     case maybeItalianRegion of
-        Nothing -> return $ createErrorResponse "Non ho trovato la tua regione" 
-        Just italianRegion -> getRegionColorByRegion italianRegion
+        Nothing -> createErrorResponse "Non ho trovato la tua regione" 
+        Just italianRegion -> return italianRegion
 
-getRegionColorByRegion :: ItalianRegion -> IO (Either String AlexaResponse)
-getRegionColorByRegion italianRegion = do
-    maybeRegionColors <- runMaybeT getRegionColors
+
+eitherRegionColorByRegion :: ItalianRegion -> ExceptT AlexaResponse IO AlexaResponse
+eitherRegionColorByRegion italianRegion = do
+    maybeRegionColors <- liftIO $ runMaybeT getRegionColors
     case fmap (Map.lookup italianRegion) maybeRegionColors of
-        Just (Just color) -> return $ createColorResponse color
-        _ -> return $ createErrorResponse "Non ho trovato il colore per la tua regione" 
+        Just (Just color) -> createColorResponse color
+        _ -> createErrorResponse "Non ho trovato il colore per la tua regione" 
+        
+eitherRegionColor :: AlexaRequest -> Context () -> ExceptT AlexaResponse IO AlexaResponse
+eitherRegionColor r _ = do
+    coordsFromRequest <- eitherGeolocation r
+    awsRegion <- liftIO getAWSRegion    
+    geoServiceKey <- liftIO $ runReaderT getGeoServiceKey awsRegion
+    italianRegion <- eitherItalianRegion geoServiceKey coordsFromRequest
+    eitherRegionColorByRegion italianRegion
 
 
-createColorResponse :: String -> Either String AlexaResponse
-createColorResponse color = Right AlexaResponse {
+createColorResponse :: String -> ExceptT AlexaResponse IO AlexaResponse
+createColorResponse color = ExceptT (pure resp)
+    where resp = Right AlexaResponse {
     outputSpeech = AlexaOutputSpeech {
         aostype = "PlainText",
         aostext = "Oggi il colore della tua regione è " ++ color,
@@ -75,8 +90,9 @@ createColorResponse color = Right AlexaResponse {
     shouldEndSession = True
 }
 
-createErrorResponse :: String -> Either String AlexaResponse
-createErrorResponse message = Right AlexaResponse {
+createErrorResponse :: String -> ExceptT AlexaResponse IO v
+createErrorResponse message = ExceptT (pure resp)
+    where resp = Left AlexaResponse {
     outputSpeech = AlexaOutputSpeech {
         aostype = "PlainText",
         aostext = message,
