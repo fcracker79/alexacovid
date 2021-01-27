@@ -1,21 +1,29 @@
-module AWS.AWSFunctions where
+module AWS.AWSFunctions(getRegionColor) where
 
 import AWS.AWSTypes.AlexaMessages
+    ( AlexaCard(AlexaCard, ctype, ctitle, ctext),
+      AlexaOutputSpeech(AlexaOutputSpeech, aostype, aostext,
+                        aosplayBehavior),
+      AlexaRequest(context),
+      AlexaResponse(..) )
 import Regions(ItalianRegion)
 import Geo.GeoService(getRegion)
 import Geo.GeoCredentials(getGeoServiceKey)
 import qualified System.Environment as Sysenv
 import Control.Monad.Reader(runReaderT)
 import Control.Monad.Trans.Maybe(runMaybeT)
-import Network.AWS
-import Network.AWS.Data
+import Network.AWS ( Region )
+import Network.AWS.Data ( fromText )
 import Data.Text(pack)
 import Aws.Lambda ( Context(..) )
 import RegionColors(getRegionColors)
 import qualified Data.Map as Map
 import AWS.AWSTypes.AlexaContext
+    ( AlexaContext(alexaGeolocation),
+      Coordinate(latitudeInDegrees, longitudeInDegrees),
+      GeoLocation(coordinate) )
 import Data.IORef(readIORef)
-import Data.Aeson
+import Data.Aeson ( encode, Value )
 import Data.ByteString.Lazy.Char8(unpack)
 import Control.Monad.Trans.Except(ExceptT(..), runExceptT)
 import Control.Monad.IO.Class(liftIO)
