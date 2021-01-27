@@ -52,7 +52,7 @@ data GeoLocation = GeoLocation {
 } deriving(Generic, Show, Eq, FromJSON, ToJSON)
 
 newtype SupportedInterfaces = SupportedInterfaces {
-    _Geolocation :: Bool
+    _Geolocation :: Maybe Bool
 } deriving(Generic, Show, Eq)
 instance ToJSON SupportedInterfaces where
     toJSON = genericToJSON defaultOptions {

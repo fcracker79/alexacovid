@@ -43,6 +43,35 @@ executables:
     dependencies:
     - alexacovid
 
+tests:
+  unit-alexacovid:
+    main: Spec.hs
+    source-dirs: test/unit
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - HUnit
+      - test-framework
+      - test-framework-hunit
+      - hspec
+      - alexacovid
+
+  integration-alexacovid:
+    main: Spec.hs
+    source-dirs: test/integration
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - HUnit
+      - test-framework
+      - test-framework-hunit
+      - hspec
+      - alexacovid
+
 default-extensions:
   - RecordWildCards
   - OverloadedLists
