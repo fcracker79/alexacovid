@@ -14,7 +14,7 @@ import Data.Aeson
       Value )
 import GHC.Generics (Generic)
 import AWS.AWSTypes.AlexaContext(AlexaContext)
-
+import AWS.AWSTypes.AlexaSession(AlexaSession)
 
 newtype AlexaStatus = AlexaStatus { code :: String} deriving (Generic, Show, FromJSON, ToJSON)
 data AlexaValue = AlexaValue {
@@ -75,7 +75,8 @@ instance FromJSON AlexaRequestPayload where
     
 data AlexaRequest = AlexaRequest {
     request :: AlexaRequestPayload,
-    context :: AlexaContext
+    context :: AlexaContext,
+    session :: AlexaSession
 } deriving (Generic, Show, FromJSON, ToJSON)
 
 type AlexaDirective = Value

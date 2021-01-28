@@ -1,12 +1,15 @@
-module AWS.AWSFunctions(getRegionColor) where
+module AWS.AWSFunctions(getRegionColor, debugMessage) where
 
+import Control.Applicative((<|>))
 import AWS.AWSTypes.AlexaMessages
-    ( AlexaCard(AlexaCard, ctype, ctitle, ctext),
+    ( AlexaResponsePayload(AlexaResponsePayload, outputSpeech, card,
+                           reprompt, directives, shouldEndSession),
+      AlexaResponse(..),
       AlexaOutputSpeech(AlexaOutputSpeech, aostype, aostext,
                         aosplayBehavior),
-      AlexaRequest(context),
-      AlexaResponse(..), AlexaResponsePayload(..))
-import Regions(ItalianRegion)
+      AlexaCard(AlexaCard, ctype, ctitle, ctext),
+      AlexaRequest(context, session) )
+import Regions(ItalianRegion, regionByCap)
 import Geo.GeoService(getRegion)
 import Geo.GeoCredentials(getGeoServiceKey)
 import qualified System.Environment as Sysenv
@@ -19,33 +22,67 @@ import Aws.Lambda ( Context(..) )
 import RegionColors(getRegionColors)
 import qualified Data.Map as Map
 import AWS.AWSTypes.AlexaContext
-    ( AlexaContext(alexaGeolocation),
-      Coordinate(latitudeInDegrees, longitudeInDegrees),
-      GeoLocation(coordinate) )
+    ( AlexaContext(alexaGeolocation, alexaSystem),
+      System(device),
+      Device(deviceId),
+      GeoLocation(coordinate),
+      Coordinate(latitudeInDegrees, longitudeInDegrees) )
+import AWS.AWSTypes.AlexaSession
+    ( AlexaSession(user),
+      User(permissions),
+      Permissions(consentToken) )
 import Data.IORef(readIORef)
-import Data.Aeson ( encode, Value )
-import Data.ByteString.Lazy.Char8(unpack)
+import qualified Data.ByteString.Char8 as Char8
 import Control.Monad.Trans.Except(ExceptT(..), runExceptT)
 import Control.Monad.IO.Class(liftIO)
+import Debug.Trace(trace)
+import Data.Aeson ( Value, FromJSON, ToJSON, encode )
+import GHC.Generics(Generic)
+import Network.HTTP.Req
+    ( (/:),
+      defaultHttpConfig,
+      header,
+      https,
+      jsonResponse,
+      req,
+      responseBody,
+      runReq,
+      GET(GET),
+      HttpException,
+      NoReqBody(NoReqBody) )
+import qualified Data.Text as Text
+import qualified Data.ByteString as ByteString
+import Control.Exception(catch)
 
 
 debugMessage :: Value -> Context () -> IO (Either String AlexaResponse)
 debugMessage r c = do
-    let s = unpack (encode r)
-    print $ "THIS IS MY ENTIRE MESSAGE " ++ s
-    return $ Left s
+    print $ "THIS IS MY ENTIRE MESSAGE " ++ (show . encode) r
+    return $ Left "DEBUG MESSAGE"
 
+
+instance Semigroup AlexaResponse where
+    a <> b = newResponseMessage (ma ++ mb)
+             where ma = (aostext . outputSpeech . response) a
+                   mb = (aostext . outputSpeech . response) b
+instance Monoid AlexaResponse where
+    mempty = newResponseMessage ""
+
+
+newtype AlexaCAPResponse = AlexaCAPResponse {
+    postalCode :: String
+} deriving(Show, Eq, Generic, FromJSON, ToJSON)
 
 getAWSRegion :: IO Region
 getAWSRegion = do
     regionString <- Sysenv.getEnv "AWS_REGION"
-    case fromText (pack regionString)::(Either String Region) of
+    case fromText (Text.pack regionString)::(Either String Region) of
         Left x -> ioError (userError x)
         Right x -> return x
     
 getRegionColor :: AlexaRequest -> Context () -> IO (Either AlexaResponse AlexaResponse)
 getRegionColor r c = do
-    result <- runExceptT $ eitherRegionColor r c
+    result <- runExceptT $ eitherRegionColor (trace ("Received request " ++ show r) r) c
     case result of
         Left r -> return $ Right r
         Right r -> return $ Right r
@@ -59,8 +96,31 @@ eitherGeolocation r = do
         Just geolocation -> return geolocation
 
 
-eitherItalianRegion :: String -> (Float, Float) -> ExceptT AlexaResponse IO ItalianRegion
-eitherItalianRegion geoServiceKey coords = do
+getCAPFromAlexaRequest :: AlexaRequest -> IO String
+getCAPFromAlexaRequest r = runReq defaultHttpConfig $ do
+    let _deviceId = pack $ (deviceId . device . alexaSystem . context) r
+    let _consentToken = (consentToken . permissions . user . session) r
+    r <- req
+        GET
+        (https "api.eu.amazonalexa.com" /: "v1" /: "devices" /: _deviceId /: "settings" /: "address" /: "countryAndPostalCode")
+        NoReqBody
+        jsonResponse
+        (header "Authorization" (Char8.pack ("Bearer " ++ _consentToken)))
+    let body = (responseBody r :: AlexaCAPResponse)
+    return $ postalCode body
+
+defaultCAP :: HttpException -> IO String
+defaultCAP _ = return "0"
+
+eitherItalianRegionByCAP :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegionByCAP r = do
+    cap <- liftIO (catch (getCAPFromAlexaRequest r) defaultCAP)
+    case regionByCap (read cap :: Int) of
+        Nothing -> createErrorResponse "CAP non  va bene"
+        Just region -> return region
+
+eitherItalianRegionByGeo :: String -> (Float, Float) -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegionByGeo geoServiceKey coords = do
     maybeItalianRegion <- liftIO $ runReaderT (runMaybeT (getRegion coords)) geoServiceKey
     case maybeItalianRegion of
         Nothing -> createErrorResponse "Non ho trovato la tua regione" 
@@ -79,7 +139,7 @@ eitherRegionColor r _ = do
     coordsFromRequest <- eitherGeolocation r
     awsRegion <- liftIO getAWSRegion    
     geoServiceKey <- liftIO $ runReaderT getGeoServiceKey awsRegion
-    italianRegion <- eitherItalianRegion geoServiceKey coordsFromRequest
+    italianRegion <- (eitherItalianRegionByGeo geoServiceKey coordsFromRequest) <|> (eitherItalianRegionByCAP r)
     eitherRegionColorByRegion italianRegion
 
 
@@ -106,21 +166,24 @@ createColorResponse color = ExceptT (pure resp)
 
 createErrorResponse :: String -> ExceptT AlexaResponse IO v
 createErrorResponse message = ExceptT (pure resp)
-    where resp = Left AlexaResponse {
-        version = "1.0",
-        response = AlexaResponsePayload {
-            outputSpeech = AlexaOutputSpeech {
-                aostype = "PlainText",
-                aostext = message,
-                aosplayBehavior = "REPLACE_ENQUEUED"
-            },
-            card = AlexaCard {
-                ctype = "Standard",
-                ctitle = message,
-                ctext = message
-            },
-            reprompt = Nothing,
-            directives = [],
-            shouldEndSession = True
-        }
+    where resp = Left $ newResponseMessage message
+
+newResponseMessage :: String -> AlexaResponse
+newResponseMessage message = AlexaResponse {
+    version = "1.0",
+    response = AlexaResponsePayload {
+        outputSpeech = AlexaOutputSpeech {
+            aostype = "PlainText",
+            aostext = message,
+            aosplayBehavior = "REPLACE_ENQUEUED"
+        },
+        card = AlexaCard {
+            ctype = "Standard",
+            ctitle = message,
+            ctext = message
+        },
+        reprompt = Nothing,
+        directives = [],
+        shouldEndSession = True
     }
+}

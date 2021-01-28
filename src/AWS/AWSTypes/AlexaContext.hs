@@ -62,12 +62,14 @@ instance FromJSON SupportedInterfaces where
     parseJSON = genericParseJSON defaultOptions {
                 fieldLabelModifier = drop 1 }
 
-newtype Device = Device {
+data Device = Device {
+    deviceId :: String,
     supportedInterfaces :: SupportedInterfaces
 } deriving(Generic, Show, Eq, FromJSON, ToJSON)
 
-newtype System = System {
-    device :: Device
+data System = System {
+    device :: Device,
+    apiEndpoint :: String
 } deriving(Generic, Show, Eq, FromJSON, ToJSON)
 
 data AlexaContext = AlexaContext {
