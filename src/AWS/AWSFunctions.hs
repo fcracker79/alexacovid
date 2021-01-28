@@ -5,7 +5,7 @@ import AWS.AWSTypes.AlexaMessages
       AlexaOutputSpeech(AlexaOutputSpeech, aostype, aostext,
                         aosplayBehavior),
       AlexaRequest(context),
-      AlexaResponse(..) )
+      AlexaResponse(..), AlexaResponsePayload(..))
 import Regions(ItalianRegion)
 import Geo.GeoService(getRegion)
 import Geo.GeoCredentials(getGeoServiceKey)
@@ -45,7 +45,10 @@ getAWSRegion = do
     
 getRegionColor :: AlexaRequest -> Context () -> IO (Either AlexaResponse AlexaResponse)
 getRegionColor r c = do
-    runExceptT $ eitherRegionColor r c
+    result <- runExceptT $ eitherRegionColor r c
+    case result of
+        Left r -> return $ Right r
+        Right r -> return $ Right r
 
 
 eitherGeolocation :: AlexaRequest -> ExceptT AlexaResponse IO (Float, Float)
@@ -83,35 +86,41 @@ eitherRegionColor r _ = do
 createColorResponse :: String -> ExceptT AlexaResponse IO AlexaResponse
 createColorResponse color = ExceptT (pure resp)
     where resp = Right AlexaResponse {
-    outputSpeech = AlexaOutputSpeech {
-        aostype = "PlainText",
-        aostext = "Oggi il colore della tua regione è " ++ color,
-        aosplayBehavior = "REPLACE_ENQUEUED"
-    },
-    card = AlexaCard {
-        ctype = "Standard",
-        ctitle = "Colori CoVid delle regioni",
-        ctext = "Scopri giorno per giorno il colore della tua regione"
-    },
-    reprompt = Nothing,
-    directives = [],
-    shouldEndSession = True
-}
+        version = "1.0",
+        response = AlexaResponsePayload {
+            outputSpeech = AlexaOutputSpeech {
+                aostype = "PlainText",
+                aostext = "Oggi il colore della tua regione è " ++ color,
+                aosplayBehavior = "REPLACE_ENQUEUED"
+            },
+            card = AlexaCard {
+                ctype = "Standard",
+                ctitle = "Colori CoVid delle regioni",
+                ctext = "Scopri giorno per giorno il colore della tua regione"
+            },
+            reprompt = Nothing,
+            directives = [],
+            shouldEndSession = True
+        }
+    }
 
 createErrorResponse :: String -> ExceptT AlexaResponse IO v
 createErrorResponse message = ExceptT (pure resp)
     where resp = Left AlexaResponse {
-    outputSpeech = AlexaOutputSpeech {
-        aostype = "PlainText",
-        aostext = message,
-        aosplayBehavior = "REPLACE_ENQUEUED"
-    },
-    card = AlexaCard {
-        ctype = "Standard",
-        ctitle = message,
-        ctext = message
-    },
-    reprompt = Nothing,
-    directives = [],
-    shouldEndSession = True
-}
+        version = "1.0",
+        response = AlexaResponsePayload {
+            outputSpeech = AlexaOutputSpeech {
+                aostype = "PlainText",
+                aostext = message,
+                aosplayBehavior = "REPLACE_ENQUEUED"
+            },
+            card = AlexaCard {
+                ctype = "Standard",
+                ctitle = message,
+                ctext = message
+            },
+            reprompt = Nothing,
+            directives = [],
+            shouldEndSession = True
+        }
+    }

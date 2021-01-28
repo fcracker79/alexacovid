@@ -3,7 +3,7 @@ module Lib where
 import GHC.Generics ()
 import AWS.AWSTypes.AlexaMessages(AlexaRequest, AlexaResponse)
 import AWS.AWSTypes.AlexaContext(AlexaContext)
-import AWS.AWSFunctions(getRegionColor, debugMessage)
+import AWS.AWSFunctions(getRegionColor)
 import Aws.Lambda ( Context )
 import Data.Aeson
 

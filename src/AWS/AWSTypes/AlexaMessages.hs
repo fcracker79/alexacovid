@@ -125,6 +125,11 @@ instance FromJSON AlexaOutputSpeech where
 
 
 data AlexaResponse = AlexaResponse {
+    version :: String,
+    response :: AlexaResponsePayload
+} deriving (Generic, Show, FromJSON, ToJSON)
+
+data AlexaResponsePayload = AlexaResponsePayload {
     outputSpeech :: AlexaOutputSpeech,
     card :: AlexaCard,
     reprompt :: Maybe AlexaReprompt,
