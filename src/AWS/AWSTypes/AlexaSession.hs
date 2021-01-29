@@ -13,7 +13,7 @@ type PermissionScopes = Map String PermissionScope
 
 data Permissions = Permissions {
     scopes :: PermissionScopes,
-    consentToken :: String
+    consentToken :: Maybe String
 } deriving(Show, Eq, Generic, FromJSON, ToJSON)
 
 data User = User {

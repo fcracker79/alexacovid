@@ -1,14 +1,14 @@
 module Lib where
 
-import GHC.Generics ()
 import AWS.AWSTypes.AlexaMessages(AlexaRequest, AlexaResponse)
 import AWS.AWSTypes.AlexaContext(AlexaContext)
-import AWS.AWSFunctions(getRegionColor)
+import AWS.AWSTypes.AlexaFunctions.GetRegionColor(getRegionColor)
+import AWS.AWSTypes.AlexaFunctions.Debug(debugMessage)
 import Aws.Lambda ( Context )
-import Data.Aeson
+import AWS.AWSTypes.AlexaFunctions.EntryPoint (entryPoint)
 
 
-handler :: AlexaRequest -> Context () -> IO (Either AlexaResponse AlexaResponse)
-handler = getRegionColor
+handler :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
+handler = entryPoint
 -- handler :: Value -> Context () -> IO (Either String AlexaResponse)
 -- handler = debugMessage

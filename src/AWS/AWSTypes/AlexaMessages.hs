@@ -137,3 +137,32 @@ data AlexaResponsePayload = AlexaResponsePayload {
     directives :: [AlexaDirective],
     shouldEndSession :: Bool
 } deriving (Generic, Show, FromJSON, ToJSON)
+
+
+newResponseMessage :: String -> AlexaResponse
+newResponseMessage message = AlexaResponse {
+    version = "1.0",
+    response = AlexaResponsePayload {
+        outputSpeech = AlexaOutputSpeech {
+            aostype = "PlainText",
+            aostext = message,
+            aosplayBehavior = "REPLACE_ENQUEUED"
+        },
+        card = AlexaCard {
+            ctype = "Standard",
+            ctitle = message,
+            ctext = message
+        },
+        reprompt = Nothing,
+        directives = [],
+        shouldEndSession = True
+    }
+}
+
+-- Having AlexaMessage as a semigroup allows me to use Alternative in EitherT AlexaResponse
+instance Semigroup AlexaResponse where
+    a <> b = newResponseMessage (ma ++ ". Inoltre, " ++ mb)
+             where ma = (aostext . outputSpeech . response) a
+                   mb = (aostext . outputSpeech . response) b
+instance Monoid AlexaResponse where
+    mempty = newResponseMessage ""
