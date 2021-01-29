@@ -25,6 +25,8 @@ dependencies:
 - lens >= 4.18.1
 - scalpel >= 0.6.2
 - bytestring >= 0.10.10.1
+- unliftio-core
+- time >= 1.9.3
 library:
   source-dirs: src
 
