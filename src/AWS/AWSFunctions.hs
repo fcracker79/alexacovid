@@ -92,7 +92,7 @@ eitherGeolocation :: AlexaRequest -> ExceptT AlexaResponse IO (Float, Float)
 eitherGeolocation r = do
     let maybeGeolocation = fmap ((\c -> (latitudeInDegrees c, longitudeInDegrees c)) . coordinate) ((alexaGeolocation . context) r)
     case maybeGeolocation of
-        Nothing -> createErrorResponse "Abilita servizi geografici"
+        Nothing -> createErrorResponse "Abilita servizi di geolocalizzazione"
         Just geolocation -> return geolocation
 
 
@@ -116,11 +116,14 @@ eitherItalianRegionByCAP :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegi
 eitherItalianRegionByCAP r = do
     cap <- liftIO (catch (getCAPFromAlexaRequest r) defaultCAP)
     case regionByCap (read cap :: Int) of
-        Nothing -> createErrorResponse "CAP non  va bene"
+        Nothing -> createErrorResponse $ "Il " ++ show cap ++ " specificato nella configurazione di Alexa non è valido"
         Just region -> return region
 
-eitherItalianRegionByGeo :: String -> (Float, Float) -> ExceptT AlexaResponse IO ItalianRegion
-eitherItalianRegionByGeo geoServiceKey coords = do
+eitherItalianRegionByGeo :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegionByGeo r = do
+    coords <- eitherGeolocation r
+    awsRegion <- liftIO getAWSRegion    
+    geoServiceKey <- liftIO $ runReaderT getGeoServiceKey awsRegion
     maybeItalianRegion <- liftIO $ runReaderT (runMaybeT (getRegion coords)) geoServiceKey
     case maybeItalianRegion of
         Nothing -> createErrorResponse "Non ho trovato la tua regione" 
@@ -133,13 +136,10 @@ eitherRegionColorByRegion italianRegion = do
     case fmap (Map.lookup italianRegion) maybeRegionColors of
         Just (Just color) -> createColorResponse color
         _ -> createErrorResponse "Non ho trovato il colore per la tua regione" 
-        
+
 eitherRegionColor :: AlexaRequest -> Context () -> ExceptT AlexaResponse IO AlexaResponse
 eitherRegionColor r _ = do
-    coordsFromRequest <- eitherGeolocation r
-    awsRegion <- liftIO getAWSRegion    
-    geoServiceKey <- liftIO $ runReaderT getGeoServiceKey awsRegion
-    italianRegion <- (eitherItalianRegionByGeo geoServiceKey coordsFromRequest) <|> (eitherItalianRegionByCAP r)
+    italianRegion <- eitherItalianRegionByGeo r <|> eitherItalianRegionByCAP r
     eitherRegionColorByRegion italianRegion
 
 
