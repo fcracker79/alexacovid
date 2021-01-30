@@ -8,7 +8,7 @@ module Geo.GeoService where
 import GHC.Generics(Generic)
 import Control.Monad.IO.Class(MonadIO, liftIO)
 import Control.Monad(guard)
-import Data.Aeson
+import Data.Aeson ( FromJSON, ToJSON )
 import Control.Monad.Trans.Maybe(MaybeT)
 import Control.Monad.Reader(ask)
 import Control.Monad.Trans.Reader(ReaderT)
@@ -18,7 +18,7 @@ import Data.Maybe(isJust, fromMaybe)
 import Data.Text(Text)
 import Regions(ItalianRegion(..))
 import qualified Data.Map as Map
-import Control.Applicative
+import Control.Applicative ( Alternative(empty) )
 
 type ApiKey = String
 
@@ -80,6 +80,9 @@ getRegion pos = do
     apiKey <- ask
     resp <- runReq defaultHttpConfig $ getRegionHttpRequest pos apiKey
     (liftIO . print) resp
-    case filter (elem "administrative_area_level_1" . types) [x | y <- resp, x <- address_components y] of
+    let administrative_area_1s = filter (elem "administrative_area_level_1" . types) [x | y <- resp, x <- address_components y]
+    let maybeRegions = fmap (\v -> Map.lookup (short_name v) transcodingMap) administrative_area_1s
+    let justRegions = filter isJust maybeRegions
+    case justRegions of
         [] -> empty
-        (v:_) -> maybe empty return (Map.lookup (short_name v) transcodingMap)
+        (Just v:_) -> return v
