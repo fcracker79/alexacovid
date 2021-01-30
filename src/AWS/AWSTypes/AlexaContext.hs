@@ -14,8 +14,8 @@ data Speed = Speed {
 } deriving(Generic, Show, Eq, FromJSON, ToJSON)
 
 data Heading = Heading {
-    directionInDegrees :: String,
-    accuracyInDegrees :: String
+    directionInDegrees :: Float,
+    accuracyInDegrees :: Float
 } deriving(Generic, Show, Eq, FromJSON, ToJSON)
 
 data Altitude = Altitude {
@@ -46,13 +46,13 @@ data GeoLocation = GeoLocation {
     locationServices :: LocationServices,
     timestamp :: String,
     coordinate :: Coordinate,
-    altitude :: Altitude,
-    heading :: Heading,
-    speed :: Speed
+    altitude :: Altitude
+--    ,heading :: Heading,
+--    speed :: Speed
 } deriving(Generic, Show, Eq, FromJSON, ToJSON)
 
 newtype SupportedInterfaces = SupportedInterfaces {
-    _Geolocation :: Maybe Bool
+    _Geolocation :: Maybe Value
 } deriving(Generic, Show, Eq)
 instance ToJSON SupportedInterfaces where
     toJSON = genericToJSON defaultOptions {

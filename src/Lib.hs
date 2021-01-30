@@ -6,7 +6,7 @@ import AWS.AWSTypes.AlexaFunctions.GetRegionColor(getRegionColor)
 import AWS.AWSTypes.AlexaFunctions.Debug(debugMessage)
 import Aws.Lambda ( Context )
 import AWS.AWSTypes.AlexaFunctions.EntryPoint (entryPoint)
-
+import Data.Aeson
 
 handler :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
 handler = entryPoint
