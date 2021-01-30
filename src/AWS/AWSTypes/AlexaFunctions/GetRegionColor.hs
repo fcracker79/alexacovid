@@ -2,14 +2,6 @@ module AWS.AWSTypes.AlexaFunctions.GetRegionColor(getRegionColor) where
 
 import Control.Applicative((<|>))
 import AWS.AWSTypes.AlexaMessages
-    ( AlexaResponsePayload(AlexaResponsePayload, outputSpeech, card,
-                           reprompt, directives, shouldEndSession),
-      AlexaResponse(..),
-      AlexaOutputSpeech(AlexaOutputSpeech, aostype, aostext,
-                        aosplayBehavior),
-      AlexaCard(AlexaCard, ctype, ctitle, ctext),
-      AlexaRequest(context, session),
-      newResponseMessage )
 import Regions(ItalianRegion, regionByCap)
 import Geo.GeoService(getRegion)
 import Geo.GeoCredentials(getGeoServiceKey)
@@ -127,6 +119,15 @@ eitherItalianRegionByGeo r = do
         Just italianRegion -> return italianRegion
 
 
+eitherHead :: [a] -> String -> ExceptT AlexaResponse IO a
+eitherHead [] msg = createErrorResponse msg
+eitherHead (v:_) _ = return v
+
+
+maybeToEither :: Maybe a -> String -> ExceptT AlexaResponse IO a
+maybeToEither Nothing msg = createErrorResponse msg
+maybeToEither (Just x) _ = return x
+
 eitherRegionColorByRegion :: ItalianRegion -> ExceptT AlexaResponse IO AlexaResponse
 eitherRegionColorByRegion italianRegion = do
     maybeRegionColors <- liftIO $ runMaybeT getRegionColors
@@ -135,7 +136,15 @@ eitherRegionColorByRegion italianRegion = do
         _ -> createErrorResponse "Non ho trovato il colore per la tua regione" 
 
 eitherItalianRegionByRequest :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
-eitherItalianRegionByRequest r = createErrorResponse "Porta pazienza"
+eitherItalianRegionByRequest r = do
+    let msg = "Regione non specificata"
+    intent <- maybeToEither (_intent (request r)) msg
+    intentSlots <- maybeToEither (intentslots intent) msg
+    authorities <- resolutionsPerAuthority . slotresolutions <$> maybeToEither (Map.lookup "region" intentSlots) msg
+    authority <- eitherHead authorities msg
+    _value <- eitherHead (values authority) msg
+    let italianRegion = read ((name . value) _value) :: ItalianRegion
+    return italianRegion
 
 eitherRegionColor :: AlexaRequest -> Context () -> ExceptT AlexaResponse IO AlexaResponse
 eitherRegionColor r _ = do

@@ -34,9 +34,15 @@
                       }
                     ],
                     "samples": [
-                        "di quale colore è {region}",
-                        "che colore è {region}",
-                        "il colore del {region}"
+                        "di quale colore è il {region}",
+                        "che colore è il {region}",
+                        "il colore del {region}",
+                        "di quale colore è la {region}",
+                        "che colore è la {region}",
+                        "il colore della {region}",
+                        "di quale colore è l' {region}",
+                        "che colore è l' {region}",
+                        "il colore l' {region}"
                     ]
                 },
                 {
