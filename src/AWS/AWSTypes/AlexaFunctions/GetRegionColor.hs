@@ -71,8 +71,8 @@ getRegionColor :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
 getRegionColor r c = do
     result <- runExceptT $ eitherRegionColor (trace ("Received request " ++ show r) r) c
     case result of
-        Left r -> return $ Right r
-        Right r -> return $ Right r
+        Left r -> return $ Right $ trace ("failed, response " ++ show r) r
+        Right r -> return $ Right $ trace ("success, response " ++ show r) r
 
 
 eitherGeolocation :: AlexaRequest -> ExceptT AlexaResponse IO (Float, Float)

@@ -1,4 +1,4 @@
-module RegionColors (getRegionColors) where
+module RegionColors where
 
 import Data.Text.Encoding (encodeUtf8,  decodeUtf8 )
 import Text.HTML.Scalpel ( scrapeURL, attr, chroots, anySelector )
@@ -87,7 +87,9 @@ getRegionColorsMapFromWebsite = fromList <$> getRegionColorsListFromWebsite
 getRegionColors :: MaybeT IO (Map ItalianRegion String)
 getRegionColors = do
     regionColors <- getRegionColorsFromCache <|> do
+                                                 liftIO $ print "getRegionColorsMapFromWebsite"
                                                  colorsFromWebsite <- getRegionColorsMapFromWebsite
+                                                 liftIO $ print ("getRegionColorsMapFromWebsite, saving cache" ++ show colorsFromWebsite)
                                                  saveRegionColorsToCache colorsFromWebsite
                                                  return colorsFromWebsite
     return $ compose regionColors transcodingMap 
@@ -106,41 +108,56 @@ getDynamoDBTableName = Text.pack <$> Sysenv.getEnv "DYNAMODB_CACHE_TABLE_NAME"
 attributeKey :: AttributeValue
 attributeKey = attributeValue & (avS ?~ "regionColorsCache")
 
+
 saveRegionColorsToCache :: Map String String -> MaybeT IO ()
 saveRegionColorsToCache regionColors = do
+    liftIO $ print "saveRegionColorsToCache"
     let dataToSave = decodeUtf8 $ toStrict $ encode regionColors
+    liftIO $ print $ "saveRegionColorsToCache, data to save " ++ show dataToSave
     lgr <- newLogger Debug stdout
     env <- newEnv Discover <&> set envLogger lgr
     region <- liftIO getAWSRegion
     tableName <- liftIO getDynamoDBTableName
+    liftIO $ print $ "saveRegionColorsToCache, table " ++ show tableName
     nowFloat <- liftIO getPOSIXTime
+    liftIO $ print $ "saveRegionColorsToCache, nowFloat " ++ show nowFloat
     let key = attributeKey
     let jsonRegionColors = attributeValue & (avS ?~ dataToSave)
-    let now = attributeValue & (avS ?~ Text.pack (show now))
+    liftIO $ print $ "saveRegionColorsToCache, jsonRegionColors " ++ show jsonRegionColors
+    let now = attributeValue & (avS ?~ Text.pack (show nowFloat))
+    liftIO $ print $ "saveRegionColorsToCache, now " ++ show now
     let timestampedRegionColors = 
             HashMap.fromList [
                 ("id", key), 
                 ("timestamp", now), 
                 ("regionColors", jsonRegionColors)
             ]
+    liftIO $ print ("saveRegionColorsToCache, item " ++ show timestampedRegionColors)
     liftIO . runResourceT . runAWST env . within region $ do
         send $ putItem tableName & piItem .~ timestampedRegionColors
+    liftIO $ print "saveRegionColorsToCache complete "
     return ()
 
 
 getRegionColorsFromCache :: MaybeT IO (Map String String)
 getRegionColorsFromCache = do
+    liftIO $ print "getRegionColorsFromCache"
     lgr <- newLogger Debug stdout
     env <- newEnv Discover <&> set envLogger lgr
     region <- liftIO getAWSRegion
     tableName <- liftIO getDynamoDBTableName
     item <- liftIO . runResourceT . runAWST env . within region $ do
         send $ getItem tableName & giKey .~ HashMap.fromList [("id", attributeKey)]
+    liftIO $ print ("getRegionColorsFromCache: item " ++ show item)
     let rowItem  = item ^. girsItem
+    liftIO $ print ("getRegionColorsFromCache: rowItem " ++ show item)
     timestampAttribute <- hoistMaybe $ Data.HashMap.Strict.lookup "timestamp" rowItem
+    liftIO $ print ("getRegionColorsFromCache: timestampAttribute " ++ show timestampAttribute)
     timestamp <- Text.unpack <$> hoistMaybe (timestampAttribute ^. avS)
+    liftIO $ print ("getRegionColorsFromCache: timestamp " ++ show timestamp)
     now <- liftIO getPOSIXTime
-    guard ((read timestamp :: POSIXTime) > now + 2 * 3600)
+    guard ((read timestamp :: POSIXTime) < now + 2 * 3600)
     regionColorsAttribute <- hoistMaybe $ Data.HashMap.Strict.lookup "regionColors" rowItem
     jsonRegionColors <- fromStrict . encodeUtf8 <$> hoistMaybe (regionColorsAttribute ^. avS)
+    liftIO $ print ("getRegionColorsFromCache: returning " ++ show jsonRegionColors)
     hoistMaybe (decode jsonRegionColors :: Maybe (Map String String))
