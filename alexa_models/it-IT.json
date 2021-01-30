@@ -26,6 +26,13 @@
                     ]
                 },
                 {
+                    "name": "DebugIntent",
+                    "slots": [],
+                    "samples": [
+                        "debug"
+                    ]
+                },
+                {
                     "name": "AMAZON.NavigateHomeIntent",
                     "samples": []
                 }
