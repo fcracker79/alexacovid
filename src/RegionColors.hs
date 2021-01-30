@@ -1,10 +1,10 @@
 module RegionColors (getRegionColors) where
 
-import Data.Text.Encoding ( decodeUtf8 )
+import Data.Text.Encoding (encodeUtf8,  decodeUtf8 )
 import Text.HTML.Scalpel ( scrapeURL, attr, chroots, anySelector )
 import Control.Monad.Trans.Maybe(MaybeT(..))
 import Control.Monad.IO.Class(MonadIO, liftIO)
-import Control.Applicative(empty)
+import Control.Applicative(Alternative((<|>)), empty)
 import Control.Monad (guard)
 import Data.Map.Strict(fromList, Map)
 import Data.Map (compose)
@@ -12,18 +12,37 @@ import Regions(ItalianRegion(..))
 import Data.Aeson(encode, decode)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import Control.Monad.IO.Unlift
+import Control.Monad.IO.Unlift ( MonadIO(liftIO) )
 import Network.AWS.DynamoDB
+    ( getItem,
+      giKey,
+      girsItem,
+      piItem,
+      putItem,
+      attributeValue,
+      avS,
+      AttributeValue )
 import qualified System.Environment as Sysenv
 import Network.AWS.Data (fromText)
 import Control.Monad.Trans.AWS
+    ( runAWST,
+      send,
+      newEnv,
+      within,
+      newLogger,
+      runResourceT,
+      Credentials(Discover),
+      HasEnv(envLogger),
+      LogLevel(Debug),
+      Region )
 import Control.Lens ((?~), (^.), (&), (.~), (<&>))
 import Control.Lens.Combinators (set)
 import System.IO (stdout)
 import Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import qualified Data.HashMap.Strict as HashMap
-import Data.ByteString.Lazy (toStrict)
+import Data.ByteString.Lazy (fromStrict, toStrict)
 import qualified Data.HashMap.Strict
+import Control.Error.Util ( hoistMaybe )
 
 
 transcodingMap :: Map ItalianRegion String
@@ -50,8 +69,8 @@ transcodingMap = fromList [
     (ValDAosta, "Valle d'Aosta"),
     (Veneto,"Veneto")]
 
-getRegionColorsList :: MaybeT IO [(String, String)]
-getRegionColorsList = MaybeT $ do
+getRegionColorsListFromWebsite :: MaybeT IO [(String, String)]
+getRegionColorsListFromWebsite = MaybeT $ do
                                scrapeURL "https://covidzone.info" scraper
                                where scraper = chroots "path" $ do
                                                                 d <- attr "d" anySelector
@@ -61,12 +80,17 @@ getRegionColorsList = MaybeT $ do
                                                                 guard (color /= "")
                                                                 return (region, color)
 
-getRegionColosMap :: MaybeT IO (Map String String)
-getRegionColosMap = fromList <$> getRegionColorsList
+getRegionColorsMapFromWebsite :: MaybeT IO (Map String String)
+getRegionColorsMapFromWebsite = fromList <$> getRegionColorsListFromWebsite
 
 
 getRegionColors :: MaybeT IO (Map ItalianRegion String)
-getRegionColors = flip compose transcodingMap . fromList <$> getRegionColorsList
+getRegionColors = do
+    regionColors <- getRegionColorsFromCache <|> do
+                                                 colorsFromWebsite <- getRegionColorsMapFromWebsite
+                                                 saveRegionColorsToCache colorsFromWebsite
+                                                 return colorsFromWebsite
+    return $ compose regionColors transcodingMap 
 
 
 getAWSRegion :: IO Region
@@ -82,14 +106,14 @@ getDynamoDBTableName = Text.pack <$> Sysenv.getEnv "DYNAMODB_CACHE_TABLE_NAME"
 attributeKey :: AttributeValue
 attributeKey = attributeValue & (avS ?~ "regionColorsCache")
 
-saveRegionColorsToCache :: Map String String -> IO ()
+saveRegionColorsToCache :: Map String String -> MaybeT IO ()
 saveRegionColorsToCache regionColors = do
     let dataToSave = decodeUtf8 $ toStrict $ encode regionColors
     lgr <- newLogger Debug stdout
     env <- newEnv Discover <&> set envLogger lgr
-    region <- getAWSRegion
-    tableName <- getDynamoDBTableName
-    nowFloat <- getPOSIXTime
+    region <- liftIO getAWSRegion
+    tableName <- liftIO getDynamoDBTableName
+    nowFloat <- liftIO getPOSIXTime
     let key = attributeKey
     let jsonRegionColors = attributeValue & (avS ?~ dataToSave)
     let now = attributeValue & (avS ?~ Text.pack (show now))
@@ -99,7 +123,7 @@ saveRegionColorsToCache regionColors = do
                 ("timestamp", now), 
                 ("regionColors", jsonRegionColors)
             ]
-    runResourceT . runAWST env . within region $ do
+    liftIO . runResourceT . runAWST env . within region $ do
         send $ putItem tableName & piItem .~ timestampedRegionColors
     return ()
 
@@ -113,7 +137,10 @@ getRegionColorsFromCache = do
     item <- liftIO . runResourceT . runAWST env . within region $ do
         send $ getItem tableName & giKey .~ HashMap.fromList [("id", attributeKey)]
     let rowItem  = item ^. girsItem
-    timestampAttribute <- MaybeT $ pure $ Data.HashMap.Strict.lookup "timestamp" rowItem
-    timestamp <- MaybeT $ pure $ timestampAttribute ^. avS
-    let x = timestamp + 1
-    MaybeT $ pure Nothing
+    timestampAttribute <- hoistMaybe $ Data.HashMap.Strict.lookup "timestamp" rowItem
+    timestamp <- Text.unpack <$> hoistMaybe (timestampAttribute ^. avS)
+    now <- liftIO getPOSIXTime
+    guard ((read timestamp :: POSIXTime) > now + 2 * 3600)
+    regionColorsAttribute <- hoistMaybe $ Data.HashMap.Strict.lookup "regionColors" rowItem
+    jsonRegionColors <- fromStrict . encodeUtf8 <$> hoistMaybe (regionColorsAttribute ^. avS)
+    hoistMaybe (decode jsonRegionColors :: Maybe (Map String String))

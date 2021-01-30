@@ -27,6 +27,7 @@ dependencies:
 - bytestring >= 0.10.10.1
 - unliftio-core
 - time >= 1.9.3
+- errors >= 2.3.0
 library:
   source-dirs: src
 
