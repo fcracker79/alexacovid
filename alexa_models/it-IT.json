@@ -1,7 +1,7 @@
 {
     "interactionModel": {
         "languageModel": {
-            "invocationName": "infocovid",
+            "invocationName": "info covid",
             "intents": [
                 {
                     "name": "AMAZON.CancelIntent",
