@@ -17,8 +17,13 @@ import AWS.AWSTypes.AlexaContext(AlexaContext)
 import AWS.AWSTypes.AlexaSession(AlexaSession)
 
 newtype AlexaStatus = AlexaStatus { code :: String} deriving (Generic, Show, FromJSON, ToJSON)
-data AlexaValue = AlexaValue {
-    name :: String, value :: String
+
+data AlexaNestedValue = AlexaNestedValue {
+    name :: String, id :: String
+} deriving (Generic, Show, FromJSON, ToJSON)
+
+newtype AlexaValue = AlexaValue {
+    value :: AlexaNestedValue
 } deriving (Generic, Show, FromJSON, ToJSON)
 
 data AlexaResolutionPerAuthority = AlexaResolutionPerAuthority {
@@ -28,11 +33,15 @@ data AlexaResolutionPerAuthority = AlexaResolutionPerAuthority {
 } deriving (Generic, Show, FromJSON, ToJSON)
 
 
+newtype AlexaResolutions = AlexaResolutions {
+    resolutionsPerAuthority :: [AlexaResolutionPerAuthority]
+} deriving (Generic, Show, FromJSON, ToJSON)
+
 data AlexaIntentSlot = AlexaIntentSlot {
     slotname :: String,
     slotvalue :: String,
     slotconfirmationStatus :: String,
-    slotresolutions :: [AlexaResolutionPerAuthority]
+    slotresolutions :: AlexaResolutions
 } deriving (Generic, Show)
 
 instance ToJSON AlexaIntentSlot where

@@ -9,7 +9,7 @@ data ItalianRegion =
 
 regionsByCaps :: [(Int, Int, ItalianRegion)]
 regionsByCaps = [
-        (00010, 2011, Lazio),
+        (00010, 2011,  Lazio),
         (05010, 06135, Umbria),
         (07010, 09170, Sardegna),
         (10010, 28925, Piemonte),

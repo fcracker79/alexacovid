@@ -26,10 +26,17 @@
                     ]
                 },
                 {
-                    "name": "DebugIntent",
-                    "slots": [],
+                    "name": "ArbitraryRegionColorIntent",
+                    "slots": [
+                      {
+                        "name": "region",
+                        "type": "LIST_OF_REGIONS"
+                      }
+                    ],
                     "samples": [
-                        "debug"
+                        "di quale colore è {region}",
+                        "che colore è {region}",
+                        "il colore del {region}"
                     ]
                 },
                 {
@@ -37,7 +44,33 @@
                     "samples": []
                 }
             ],
-            "types": []
+            "types": [
+                {
+                    "name": "LIST_OF_REGIONS",
+                    "values": [
+                        {"name": {"value": "Lazio"}},
+                        {"name": {"value": "Umbria"}},
+                        {"name": {"value": "Sardegna"}},
+                        {"name": {"value": "Piemonte"}},
+                        {"name": {"value": "ValDAosta"}},
+                        {"name": {"value": "Liguria"}},
+                        {"name": {"value": "Lombardia"}},
+                        {"name": {"value": "Emilia"}},
+                        {"name": {"value": "Veneto"}},
+                        {"name": {"value": "Friuli"}},
+                        {"name": {"value": "Trentino"}},
+                        {"name": {"value": "Toscana"}},
+                        {"name": {"value": "Marche"}},
+                        {"name": {"value": "Abruzzo"}},
+                        {"name": {"value": "Puglia"}},
+                        {"name": {"value": "Basilicata"}},
+                        {"name": {"value": "Campania"}},
+                        {"name": {"value": "Molise"}},
+                        {"name": {"value": "Calabria"}},
+                        {"name": {"value": "Sicilia"}}
+                    ]
+                }
+            ]
         }
     }
 }

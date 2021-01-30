@@ -134,9 +134,12 @@ eitherRegionColorByRegion italianRegion = do
         Just (Just color) -> createColorResponse italianRegion color
         _ -> createErrorResponse "Non ho trovato il colore per la tua regione" 
 
+eitherItalianRegionByRequest :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegionByRequest r = createErrorResponse "Porta pazienza"
+
 eitherRegionColor :: AlexaRequest -> Context () -> ExceptT AlexaResponse IO AlexaResponse
 eitherRegionColor r _ = do
-    italianRegion <- eitherItalianRegionByGeo r <|> eitherItalianRegionByCAP r
+    italianRegion <- eitherItalianRegionByRequest r <|> eitherItalianRegionByGeo r <|> eitherItalianRegionByCAP r
     eitherRegionColorByRegion italianRegion
 
 
