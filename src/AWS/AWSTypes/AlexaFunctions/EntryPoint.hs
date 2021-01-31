@@ -14,5 +14,6 @@ entryPoint :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
 entryPoint r c
     | maybeIntentName == Just "RegionColorIntent" = getRegionColor r c
     | maybeIntentName == Just "ArbitraryRegionColorIntent" = getRegionColor r c
-    | otherwise = return $ trace "Unsupported intent" $ Left $ "Unsupported intent " ++ show maybeIntentName
+    | otherwise = return $ trace unsupportedIntentMessage $ Left unsupportedIntentMessage
     where maybeIntentName = fmap intentname ((_intent . request) r)
+          unsupportedIntentMessage = "Unsupported intent " ++ show maybeIntentName ++ ", message " ++ show r

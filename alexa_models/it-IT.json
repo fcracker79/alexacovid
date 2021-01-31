@@ -73,7 +73,10 @@
                         {"name": {"value": "Campania"}},
                         {"name": {"value": "Molise"}},
                         {"name": {"value": "Calabria"}},
-                        {"name": {"value": "Sicilia"}}
+                        {"name": {"value": "Sicilia"}},
+                        {"name": {"value": "Friuli Venezia Giulia"}},
+                        {"name": {"value": "Emila Romagna"}},
+                        {"name": {"value": "Romagna"}}
                     ]
                 }
             ]

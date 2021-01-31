@@ -135,6 +135,13 @@ eitherRegionColorByRegion italianRegion = do
         Just (Just color) -> createColorResponse italianRegion color
         _ -> createErrorResponse "Non ho trovato il colore per la tua regione" 
 
+
+decodedItalianRegion :: String -> String
+decodedItalianRegion "Friuli Venezia Giulia" = "Friuli"
+decodedItalianRegion "Emilia Romagna" = "Emilia"
+decodedItalianRegion "Romagna" = "Emilia"
+decodedItalianRegion x = x
+
 eitherItalianRegionByRequest :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
 eitherItalianRegionByRequest r = do
     let msg = "Regione non specificata"
@@ -143,7 +150,8 @@ eitherItalianRegionByRequest r = do
     authorities <- resolutionsPerAuthority . slotresolutions <$> maybeToEither (Map.lookup "region" intentSlots) msg
     authority <- eitherHead authorities msg
     _value <- eitherHead (values authority) msg
-    let italianRegion = read ((name . value) _value) :: ItalianRegion
+    let strItalianRegion = decodedItalianRegion $ (name . value) _value
+    let italianRegion = read strItalianRegion :: ItalianRegion
     return italianRegion
 
 eitherRegionColor :: AlexaRequest -> Context () -> ExceptT AlexaResponse IO AlexaResponse
