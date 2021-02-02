@@ -48,6 +48,20 @@ import qualified Data.ByteString as ByteString
 import Control.Exception(catch)
 
 
+data ResponseError = NoSuchCAPPermission | NoGeoServicePermission | 
+                     RegionNotFound | InvalidCAP | ColorNotFoundForRegion |
+                     RegionNotSpecified
+                     deriving(Show, Eq)
+
+error2msg :: [ResponseError] -> String
+error2msg errors 
+    | ColorNotFoundForRegion `elem` errors = "Non ho trovato il colore per la tua regione"
+    | InvalidCAP `elem` errors = "CAP non valido"
+    | RegionNotFound `elem` errors = "Non riesco a trovare la tua regione"
+    | NoSuchCAPPermission `elem` errors = "Non posso accedere al CAP del tuo dispositivo"
+    | NoGeoServicePermission `elem` errors = "Non posso accedere alla tua posizione geografica"
+    | RegionNotSpecified `elem` errors = "Non ho capito la regione"
+    | otherwise = "Errore sconosciuto"
 newtype AlexaCAPResponse = AlexaCAPResponse {
     postalCode :: String
 } deriving(Show, Eq, Generic, FromJSON, ToJSON)
@@ -63,15 +77,15 @@ getRegionColor :: AlexaRequest -> Context () -> IO (Either String AlexaResponse)
 getRegionColor r c = do
     result <- runExceptT $ eitherRegionColor (trace ("Received request " ++ show r) r) c
     case result of
-        Left r -> return $ Right $ trace ("failed, response " ++ show r) r
+        Left r -> return $ Right $ trace ("failed, response " ++ show r) $ newResponseMessage $ error2msg r
         Right r -> return $ Right $ trace ("success, response " ++ show r) r
 
 
-eitherGeolocation :: AlexaRequest -> ExceptT AlexaResponse IO (Float, Float)
+eitherGeolocation :: AlexaRequest -> ExceptT [ResponseError] IO (Float, Float)
 eitherGeolocation r = do
     let maybeGeolocation = fmap ((\c -> (latitudeInDegrees c, longitudeInDegrees c)) . coordinate) ((alexaGeolocation . context) r)
     case maybeGeolocation of
-        Nothing -> createErrorResponse "Abilita la skill InfoCovid ad accedere al servizio di geolocalizzazione"
+        Nothing -> createErrorResponse NoGeoServicePermission
         Just geolocation -> return geolocation
 
 
@@ -94,46 +108,46 @@ getCAPFromAlexaRequest r = runReq defaultHttpConfig $ do
 noCAP :: HttpException -> IO (Maybe String)
 noCAP _ = return Nothing
 
-eitherCAPFromAlexa :: AlexaRequest -> ExceptT AlexaResponse IO String
+eitherCAPFromAlexa :: AlexaRequest -> ExceptT [ResponseError] IO String
 eitherCAPFromAlexa r = do
     maybeCAP <- liftIO (catch (getCAPFromAlexaRequest r) noCAP)
     case maybeCAP of
-        Nothing -> createErrorResponse "Abilita la skill InfoCovid ad accedere al CAP del tuo dispositivo Alexa"
+        Nothing -> createErrorResponse NoSuchCAPPermission
         Just cap -> return cap
 
-eitherItalianRegionByCAP :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegionByCAP :: AlexaRequest -> ExceptT [ResponseError] IO ItalianRegion
 eitherItalianRegionByCAP r = do
     cap <- eitherCAPFromAlexa r
     case regionByCap (read cap :: Int) of
         Just region -> return region
-        _ -> createErrorResponse $ "Il CAP " ++ cap ++ " specificato nella configurazione di Alexa non è valido"
+        _ -> createErrorResponse InvalidCAP
 
-eitherItalianRegionByGeo :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegionByGeo :: AlexaRequest -> ExceptT [ResponseError] IO ItalianRegion
 eitherItalianRegionByGeo r = do
     coords <- eitherGeolocation r
     awsRegion <- liftIO getAWSRegion    
     geoServiceKey <- liftIO $ runReaderT getGeoServiceKey awsRegion
     maybeItalianRegion <- liftIO $ runReaderT (runMaybeT (getRegion coords)) geoServiceKey
     case maybeItalianRegion of
-        Nothing -> createErrorResponse "Non ho trovato la tua regione" 
+        Nothing -> createErrorResponse RegionNotFound
         Just italianRegion -> return italianRegion
 
 
-eitherHead :: [a] -> String -> ExceptT AlexaResponse IO a
-eitherHead [] msg = createErrorResponse msg
+eitherHead :: [a] -> ResponseError -> ExceptT [ResponseError] IO a
+eitherHead [] e = createErrorResponse e
 eitherHead (v:_) _ = return v
 
 
-maybeToEither :: Maybe a -> String -> ExceptT AlexaResponse IO a
-maybeToEither Nothing msg = createErrorResponse msg
+maybeToEither :: Maybe a -> ResponseError -> ExceptT [ResponseError] IO a
+maybeToEither Nothing e = createErrorResponse e
 maybeToEither (Just x) _ = return x
 
-eitherRegionColorByRegion :: ItalianRegion -> ExceptT AlexaResponse IO AlexaResponse
+eitherRegionColorByRegion :: ItalianRegion -> ExceptT [ResponseError] IO AlexaResponse
 eitherRegionColorByRegion italianRegion = do
     maybeRegionColors <- liftIO $ runMaybeT getRegionColors
     case fmap (Map.lookup italianRegion) maybeRegionColors of
         Just (Just color) -> createColorResponse italianRegion color
-        _ -> createErrorResponse "Non ho trovato il colore per la tua regione" 
+        _ -> createErrorResponse ColorNotFoundForRegion
 
 
 decodedItalianRegion :: String -> String
@@ -142,25 +156,24 @@ decodedItalianRegion "Emilia Romagna" = "Emilia"
 decodedItalianRegion "Romagna" = "Emilia"
 decodedItalianRegion x = x
 
-eitherItalianRegionByRequest :: AlexaRequest -> ExceptT AlexaResponse IO ItalianRegion
+eitherItalianRegionByRequest :: AlexaRequest -> ExceptT [ResponseError] IO ItalianRegion
 eitherItalianRegionByRequest r = do
-    let msg = "Regione non specificata"
-    intent <- maybeToEither (_intent (request r)) msg
-    intentSlots <- maybeToEither (intentslots intent) msg
-    authorities <- resolutionsPerAuthority . slotresolutions <$> maybeToEither (Map.lookup "region" intentSlots) msg
-    authority <- eitherHead authorities msg
-    _value <- eitherHead (values authority) msg
+    intent <- maybeToEither (_intent (request r)) RegionNotSpecified
+    intentSlots <- maybeToEither (intentslots intent) RegionNotSpecified
+    authorities <- resolutionsPerAuthority . slotresolutions <$> maybeToEither (Map.lookup "region" intentSlots) RegionNotSpecified
+    authority <- eitherHead authorities RegionNotSpecified
+    _value <- eitherHead (values authority) RegionNotSpecified
     let strItalianRegion = decodedItalianRegion $ (name . value) _value
     let italianRegion = read strItalianRegion :: ItalianRegion
     return italianRegion
 
-eitherRegionColor :: AlexaRequest -> Context () -> ExceptT AlexaResponse IO AlexaResponse
+eitherRegionColor :: AlexaRequest -> Context () -> ExceptT [ResponseError] IO AlexaResponse
 eitherRegionColor r _ = do
     italianRegion <- eitherItalianRegionByRequest r <|> eitherItalianRegionByGeo r <|> eitherItalianRegionByCAP r
     eitherRegionColorByRegion italianRegion
 
 
-createColorResponse :: ItalianRegion -> String -> ExceptT AlexaResponse IO AlexaResponse
+createColorResponse :: ItalianRegion -> String -> ExceptT t IO AlexaResponse
 createColorResponse italianRegion color = ExceptT (pure resp)
     where resp = Right AlexaResponse {
         version = "1.0",
@@ -181,6 +194,6 @@ createColorResponse italianRegion color = ExceptT (pure resp)
         }
     }
 
-createErrorResponse :: String -> ExceptT AlexaResponse IO v
-createErrorResponse message = ExceptT (pure resp)
-    where resp = Left $ newResponseMessage message
+createErrorResponse :: ResponseError -> ExceptT [ResponseError] IO v
+createErrorResponse error = ExceptT (pure resp)
+    where resp = Left [error]

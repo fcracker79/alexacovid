@@ -156,7 +156,7 @@ getRegionColorsFromCache = do
     timestamp <- Text.unpack <$> hoistMaybe (timestampAttribute ^. avS)
     liftIO $ print ("getRegionColorsFromCache: timestamp " ++ show timestamp)
     now <- liftIO getPOSIXTime
-    guard ((read timestamp :: POSIXTime) < now + 2 * 3600)
+    guard (now - (read timestamp :: POSIXTime) <2 * 3600)
     regionColorsAttribute <- hoistMaybe $ Data.HashMap.Strict.lookup "regionColors" rowItem
     jsonRegionColors <- fromStrict . encodeUtf8 <$> hoistMaybe (regionColorsAttribute ^. avS)
     liftIO $ print ("getRegionColorsFromCache: returning " ++ show jsonRegionColors)

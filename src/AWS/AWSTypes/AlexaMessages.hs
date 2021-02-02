@@ -168,10 +168,3 @@ newResponseMessage message = AlexaResponse {
     }
 }
 
--- Having AlexaMessage as a semigroup allows me to use Alternative in EitherT AlexaResponse
-instance Semigroup AlexaResponse where
-    a <> b = newResponseMessage (ma ++ ". Inoltre, " ++ mb)
-             where ma = (aostext . outputSpeech . response) a
-                   mb = (aostext . outputSpeech . response) b
-instance Monoid AlexaResponse where
-    mempty = newResponseMessage ""
